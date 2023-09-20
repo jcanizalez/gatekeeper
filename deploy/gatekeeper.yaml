@@ -3948,6 +3948,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - CONNECT
     resources:
     - '*'
     - pods/ephemeralcontainers
