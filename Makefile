@@ -13,12 +13,11 @@ ENABLE_PUBSUB ?= false
 AUDIT_CONNECTION ?= "audit"
 AUDIT_CHANNEL ?= "audit"
 
-VERSION := v3.14.0-beta.0
+VERSION := v3.15.0-beta.0
 
 KIND_VERSION ?= 0.17.0
 # note: k8s version pinned since KIND image availability lags k8s releases
-KUBERNETES_VERSION ?= 1.27.1
-CRD_KUBECTL_VERSION ?= 1.27.1
+KUBERNETES_VERSION ?= 1.28.0
 KUSTOMIZE_VERSION ?= 3.8.9
 BATS_VERSION ?= 1.8.2
 ORAS_VERSION ?= 0.16.0
@@ -384,7 +383,6 @@ docker-buildx-crds: build-crds docker-buildx-builder
 	docker buildx build \
 		$(_ATTESTATIONS) \
 		--build-arg LDFLAGS=${LDFLAGS} \
-		--build-arg KUBE_VERSION=${CRD_KUBECTL_VERSION} \
 		--platform="$(PLATFORM)" \
 		--output=$(OUTPUT_TYPE) \
 		-t $(CRD_IMG) \
@@ -403,7 +401,6 @@ docker-buildx-crds-dev: build-crds docker-buildx-builder
 	docker buildx build \
 		$(_ATTESTATIONS) \
 		--build-arg LDFLAGS=${LDFLAGS} \
-		--build-arg KUBE_VERSION=${CRD_KUBECTL_VERSION} \
 		--platform="$(PLATFORM)" \
 		--output=$(OUTPUT_TYPE) \
 		-t $(CRD_REPOSITORY):$(DEV_TAG) \
@@ -422,7 +419,6 @@ docker-buildx-crds-release: build-crds docker-buildx-builder
 	docker buildx build \
 		$(_ATTESTATIONS) \
 		--build-arg LDFLAGS=${LDFLAGS}\
-		--build-arg KUBE_VERSION=${CRD_KUBECTL_VERSION} \
 		--platform="$(PLATFORM)" \
 		--output=$(OUTPUT_TYPE) \
 		-t $(CRD_REPOSITORY):$(VERSION) \
@@ -465,6 +461,7 @@ release-manifest:
 	@sed -i "s/tag: $(VERSION)/tag: ${NEWVERSION}/" ./cmd/build/helmify/static/values.yaml
 	@sed -i 's/Current release version: `$(VERSION)`/Current release version: `'"${NEWVERSION}"'`/' ./cmd/build/helmify/static/README.md
 	@sed -i -e 's/^VERSION := $(VERSION)/VERSION := ${NEWVERSION}/' ./Makefile
+	@sed -i 's/https:\/\/raw\.githubusercontent\.com\/open-policy-agent\/gatekeeper\/master\/deploy\/gatekeeper\.yaml.*/https:\/\/raw\.githubusercontent\.com\/open-policy-agent\/gatekeeper\/${NEWVERSION}\/deploy\/gatekeeper\.yaml/' ./website/docs/install.md
 	export
 	$(MAKE) manifests
 

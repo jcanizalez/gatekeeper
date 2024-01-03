@@ -39,11 +39,13 @@ import (
 )
 
 const (
-	ctrlName      = "config-controller"
-	finalizerName = "finalizers.gatekeeper.sh/config"
+	ctrlName = "config-controller"
 )
 
-var log = logf.Log.WithName("controller").WithValues("kind", "Config")
+var (
+	log       = logf.Log.WithName("controller").WithValues("kind", "Config")
+	configGVK = configv1alpha1.GroupVersion.WithKind("Config")
+)
 
 type Adder struct {
 	ControllerSwitch *watch.ControllerSwitch
@@ -131,8 +133,7 @@ type ReconcileConfig struct {
 
 // Reconcile reads that state of the cluster for a Config object and makes changes based on the state read
 // and what is in the Config.Spec
-// Automatically generate RBAC rules to allow the Controller to read all things (for sync)
-// update is needed for finalizers.
+// Automatically generate RBAC rules to allow the Controller to read all things (for sync).
 func (r *ReconcileConfig) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Short-circuit if shutting down.
 	if r.cs != nil {
@@ -157,16 +158,6 @@ func (r *ReconcileConfig) Reconcile(ctx context.Context, request reconcile.Reque
 			exists = false
 		} else {
 			// Error reading the object - requeue the request.
-			return reconcile.Result{}, err
-		}
-	}
-
-	// Actively remove config finalizer. This should automatically remove
-	// the finalizer over time even if state teardown didn't work correctly
-	// after a deprecation period, all finalizer code can be removed.
-	if exists && hasFinalizer(instance) {
-		removeFinalizer(instance)
-		if err := r.writer.Update(ctx, instance); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -198,35 +189,11 @@ func (r *ReconcileConfig) Reconcile(ctx context.Context, request reconcile.Reque
 	r.cacheManager.ExcludeProcesses(newExcluder)
 	configSourceKey := aggregator.Key{Source: "config", ID: request.NamespacedName.String()}
 	if err := r.cacheManager.UpsertSource(ctx, configSourceKey, gvksToSync); err != nil {
+		r.tracker.For(configGVK).TryCancelExpect(instance)
+
 		return reconcile.Result{Requeue: true}, fmt.Errorf("config-controller: error establishing watches for new syncOny: %w", err)
 	}
 
+	r.tracker.For(configGVK).Observe(instance)
 	return reconcile.Result{}, nil
-}
-
-func containsString(s string, items []string) bool {
-	for _, item := range items {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-func removeString(s string, items []string) []string {
-	var rval []string
-	for _, item := range items {
-		if item != s {
-			rval = append(rval, item)
-		}
-	}
-	return rval
-}
-
-func hasFinalizer(instance *configv1alpha1.Config) bool {
-	return containsString(finalizerName, instance.GetFinalizers())
-}
-
-func removeFinalizer(instance *configv1alpha1.Config) {
-	instance.SetFinalizers(removeString(finalizerName, instance.GetFinalizers()))
 }

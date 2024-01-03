@@ -155,7 +155,7 @@ func TestReconcile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wrap the Controller Reconcile function so it writes each request to a map when it is finished reconciling.
-	recFn, requests := SetupTestReconcile(rec)
+	recFn, requests := testutils.SetupTestReconcile(rec)
 	require.NoError(t, add(mgr, recFn))
 
 	testutils.StartManager(ctx, t, mgr)
@@ -301,9 +301,8 @@ func TestConfig_DeleteSyncResources(t *testing.T) {
 	// create the Config object and expect the Reconcile to be created when controller starts
 	instance := &configv1alpha1.Config{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       "config",
-			Namespace:  "gatekeeper-system",
-			Finalizers: []string{finalizerName},
+			Name:      "config",
+			Namespace: "gatekeeper-system",
 		},
 		Spec: configv1alpha1.ConfigSpec{
 			Sync: configv1alpha1.Sync{
@@ -418,8 +417,6 @@ func setupController(ctx context.Context, mgr manager.Manager, wm *watch.Manager
 		}
 	}
 
-	// ControllerSwitch will be used to disable controllers during our teardown process,
-	// avoiding conflicts in finalizer cleanup.
 	cs := watch.NewSwitch()
 	processExcluder := process.Get()
 	syncMetricsCache := syncutil.NewMetricsCache()
